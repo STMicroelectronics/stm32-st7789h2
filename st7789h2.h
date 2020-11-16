@@ -2,8 +2,6 @@
   ******************************************************************************
   * @file    st7789h2.h
   * @author  MCD Application Team
-  * @version V1.1.1
-  * @date    29-December-2016
   * @brief   This file contains all the functions prototypes for the st7789h2.c
   *          driver.
   ******************************************************************************
@@ -50,34 +48,34 @@
 
 /** @addtogroup BSP
   * @{
-  */ 
+  */
 
 /** @addtogroup Components
   * @{
   */ 
-  
+
 /** @addtogroup ST7789H2
   * @{
   */
 
 /** @defgroup ST7789H2_Exported_Types ST7789H2 Exported Types
   * @{
-  */   
+  */
 /**
   * @}
-  */ 
+  */
 
 /** @defgroup ST7789H2_Exported_Constants ST7789H2 Exported Constants
   * @{
   */
-/** 
+/**
   * @brief  ST7789H2 ID  
-  */  
+  */
 #define  ST7789H2_ID    0x85
-   
+
 /** 
   * @brief  ST7789H2 Size  
-  */  
+  */
 #define  ST7789H2_LCD_PIXEL_WIDTH    ((uint16_t)240)
 #define  ST7789H2_LCD_PIXEL_HEIGHT   ((uint16_t)240)
 
@@ -88,14 +86,14 @@
 #define ST7789H2_ORIENTATION_PORTRAIT         ((uint32_t)0x00) /* Portrait orientation choice of LCD screen  */
 #define ST7789H2_ORIENTATION_LANDSCAPE        ((uint32_t)0x01) /* Landscape orientation choice of LCD screen */
 #define ST7789H2_ORIENTATION_LANDSCAPE_ROT180 ((uint32_t)0x02) /* Landscape rotated 180° orientation choice of LCD screen */
-    
+
 /** 
   * @brief  ST7789H2 Registers  
   */
-#define ST7789H2_LCD_ID             0x04   
+#define ST7789H2_LCD_ID             0x04
 #define ST7789H2_SLEEP_IN           0x10
 #define ST7789H2_SLEEP_OUT          0x11
-#define ST7789H2_PARTIAL_DISPLAY    0x12    
+#define ST7789H2_PARTIAL_DISPLAY    0x12
 #define ST7789H2_DISPLAY_INVERSION  0x21
 #define ST7789H2_DISPLAY_ON         0x29
 #define ST7789H2_WRITE_RAM          0x2C
@@ -112,25 +110,25 @@
 #define ST7789H2_PORCH_CTRL         0xB2
 #define ST7789H2_GATE_CTRL          0xB7
 #define ST7789H2_VCOM_SET           0xBB
-#define ST7789H2_DISPLAY_OFF        0xBD    
+#define ST7789H2_DISPLAY_OFF        0xBD
 #define ST7789H2_LCM_CTRL           0xC0
 #define ST7789H2_VDV_VRH_EN         0xC2
-#define ST7789H2_VDV_SET            0xC4    
+#define ST7789H2_VDV_SET            0xC4
 #define ST7789H2_VCOMH_OFFSET_SET   0xC5
 #define ST7789H2_FR_CTRL            0xC6
 #define ST7789H2_POWER_CTRL         0xD0
 #define ST7789H2_PV_GAMMA_CTRL      0xE0
-#define ST7789H2_NV_GAMMA_CTRL      0xE1 
-  
+#define ST7789H2_NV_GAMMA_CTRL      0xE1
+
 /**
   * @}
   */
-  
+
 /** @defgroup ST7789H2_Exported_Functions ST7789H2 Exported Functions
   * @{
   */ 
 void     ST7789H2_Init(void);
-void     ST7789H2_SetOrientation(uint32_t orientation);    
+void     ST7789H2_SetOrientation(uint32_t orientation);
 uint16_t ST7789H2_ReadID(void);
 void     ST7789H2_WriteReg(uint8_t Command, uint8_t *Parameters, uint8_t NbParameters);
 uint8_t  ST7789H2_ReadReg(uint8_t Command);
@@ -166,7 +164,7 @@ extern void     LCD_IO_Delay(uint32_t delay);
 /**
   * @}
   */ 
-      
+
 #ifdef __cplusplus
 }
 #endif

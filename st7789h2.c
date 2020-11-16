@@ -2,8 +2,6 @@
   ******************************************************************************
   * @file    st7789h2.c
   * @author  MCD Application Team
-  * @version V1.1.1
-  * @date    29-December-2016
   * @brief   This file includes the LCD driver for st7789h2 LCD.
   ******************************************************************************
   * @attention
