@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    st7789h2.c
   * @author  MCD Application Team
-  * @brief   This file includes the LCD driver for st7789h2 LCD.
+  * @brief   This file includes the driver for ST7789H2 LCD.
   ******************************************************************************
   * @attention
   *
@@ -15,693 +15,1090 @@
   *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "st7789h2.h"
 
 /** @addtogroup BSP
   * @{
-  */ 
+  */
 
 /** @addtogroup Components
   * @{
-  */ 
-  
+  */
+
 /** @defgroup ST7789H2
-  * @brief     This file provides a set of functions needed to drive the 
-  *            FRIDA FRD154BP2901 LCD.
   * @{
   */
-
-/** @defgroup ST7789H2_Private_TypesDefinitions ST7789H2 Private TypesDefinitions
-  * @{
-  */ 
-typedef struct  {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-} ST7789H2_Rgb888;
-
-/**
-  * @}
-  */ 
-
-/** @defgroup ST7789H2_Private_Defines ST7789H2 Private Defines
-  * @{
-  */
-
-/**
-  * @}
-  */ 
-  
-/** @defgroup ST7789H2_Private_Macros ST7789H2 Private Macros
-  * @{
-  */
-     
-/**
-  * @}
-  */  
 
 /** @defgroup ST7789H2_Private_Variables ST7789H2 Private Variables
   * @{
-  */ 
-LCD_DrvTypeDef   ST7789H2_drv = 
+  */
+ST7789H2_Drv_t   ST7789H2_Driver =
 {
   ST7789H2_Init,
+  ST7789H2_DeInit,
   ST7789H2_ReadID,
   ST7789H2_DisplayOn,
   ST7789H2_DisplayOff,
+  ST7789H2_SetBrightness,
+  ST7789H2_GetBrightness,
+  ST7789H2_SetOrientation,
+  ST7789H2_GetOrientation,
   ST7789H2_SetCursor,
-  ST7789H2_WritePixel,
-  ST7789H2_ReadPixel,
-  ST7789H2_SetDisplayWindow,
+  ST7789H2_DrawBitmap,
+  ST7789H2_FillRGBRect,
   ST7789H2_DrawHLine,
   ST7789H2_DrawVLine,
-  ST7789H2_GetLcdPixelWidth,
-  ST7789H2_GetLcdPixelHeight,
-  ST7789H2_DrawBitmap,
-  ST7789H2_DrawRGBImage,  
+  ST7789H2_FillRect,
+  ST7789H2_GetPixel,
+  ST7789H2_SetPixel,
+  ST7789H2_GetXSize,
+  ST7789H2_GetYSize,
 };
-
-static uint16_t WindowsXstart = 0;
-static uint16_t WindowsYstart = 0;
-static uint16_t WindowsXend = ST7789H2_LCD_PIXEL_WIDTH-1;
-static uint16_t WindowsYend = ST7789H2_LCD_PIXEL_HEIGHT-1;
 /**
   * @}
-  */ 
-  
+  */
+
 /** @defgroup ST7789H2_Private_FunctionPrototypes ST7789H2 Private FunctionPrototypes
   * @{
   */
-static ST7789H2_Rgb888 ST7789H2_ReadPixel_rgb888(uint16_t Xpos, uint16_t Ypos);
-static void ST7789H2_DrawRGBHLine(uint16_t Xpos, uint16_t Ypos, uint16_t Xsize, uint8_t *pdata);
-
+static int32_t ST7789H2_ReadRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length);
+static int32_t ST7789H2_WriteRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length);
+static int32_t ST7789H2_SendDataWrap(void *handle, uint8_t *pData, uint16_t Length);
+static void    ST7789H2_Delay(ST7789H2_Object_t *pObj, uint32_t Delay);
 /**
   * @}
-  */ 
-  
-/** @defgroup ST7789H2_Private_Functions ST7789H2 Private Functions
+  */
+
+/** @addtogroup ST7789H2_Exported_Functions
   * @{
-  */   
-
-/**
-  * @brief  Initialize the st7789h2 LCD Component.
-  * @param  None
-  * @retval None
   */
-void ST7789H2_Init(void)
-{
-  uint8_t   parameter[14];
-  
-  /* Initialize st7789h2 low level bus layer ----------------------------------*/
-  LCD_IO_Init();
-  /* Sleep In Command */ 
-  ST7789H2_WriteReg(ST7789H2_SLEEP_IN, (uint8_t*)NULL, 0); 
-  /* Wait for 10ms */
-  LCD_IO_Delay(10);  
-  
-  /* SW Reset Command */
-  ST7789H2_WriteReg(0x01, (uint8_t*)NULL, 0); 
-  /* Wait for 200ms */
-  LCD_IO_Delay(200);
-  
-  /* Sleep Out Command */
-  ST7789H2_WriteReg(ST7789H2_SLEEP_OUT, (uint8_t*)NULL, 0); 
-  /* Wait for 120ms */
-  LCD_IO_Delay(120); 
-
-  /* Normal display for Driver Down side */
-  parameter[0] = 0x00;     
-  ST7789H2_WriteReg(ST7789H2_NORMAL_DISPLAY, parameter, 1);
- 
-  /* Color mode 16bits/pixel */
-  parameter[0] = 0x05;     
-  ST7789H2_WriteReg(ST7789H2_COLOR_MODE, parameter, 1);
-  
-  /* Display inversion On */
-  ST7789H2_WriteReg(ST7789H2_DISPLAY_INVERSION, (uint8_t*)NULL, 0);     
-  
-  /* Set Column address CASET */  
-  parameter[0] = 0x00;
-  parameter[1] = 0x00;
-  parameter[2] = 0x00;
-  parameter[3] = 0xEF;
-  ST7789H2_WriteReg(ST7789H2_CASET, parameter, 4);
-  /* Set Row address RASET */  
-  parameter[0] = 0x00;
-  parameter[1] = 0x00;
-  parameter[2] = 0x00;
-  parameter[3] = 0xEF;
-  ST7789H2_WriteReg(ST7789H2_RASET, parameter, 4);
-
-  /*--------------- ST7789H2 Frame rate setting -------------------------------*/
-  /* PORCH control setting */      
-  parameter[0] = 0x0C;
-  parameter[1] = 0x0C;
-  parameter[2] = 0x00;
-  parameter[3] = 0x33;
-  parameter[4] = 0x33; 
-  ST7789H2_WriteReg(ST7789H2_PORCH_CTRL, parameter, 5);
-  
-  /* GATE control setting */
-  parameter[0] = 0x35; 
-  ST7789H2_WriteReg(ST7789H2_GATE_CTRL, parameter, 1);
-  
-  /*--------------- ST7789H2 Power setting ------------------------------------*/
-  /* VCOM setting */ 
-  parameter[0] = 0x1F; 
-  ST7789H2_WriteReg(ST7789H2_VCOM_SET, parameter, 1); 
-  
-  /* LCM Control setting */ 
-  parameter[0] = 0x2C; 
-  ST7789H2_WriteReg(ST7789H2_LCM_CTRL, parameter, 1);
-  
-  /* VDV and VRH Command Enable */ 
-  parameter[0] = 0x01;
-  parameter[1] = 0xC3;
-  ST7789H2_WriteReg(ST7789H2_VDV_VRH_EN, parameter, 2);
-  
-  /* VDV Set */ 
-  parameter[0] = 0x20; 
-  ST7789H2_WriteReg(ST7789H2_VDV_SET, parameter, 1); 
-  
-  /* Frame Rate Control in normal mode */ 
-  parameter[0] = 0x0F; 
-  ST7789H2_WriteReg(ST7789H2_FR_CTRL, parameter, 1); 
-  
-  /* Power Control */     
-  parameter[0] = 0xA4;
-  parameter[1] = 0xA1;
-  ST7789H2_WriteReg(ST7789H2_POWER_CTRL, parameter, 2); 
-  
-  /*--------------- ST7789H2 Gamma setting ------------------------------------*/
-  /* Positive Voltage Gamma Control */ 
-  parameter[0] = 0xD0;
-  parameter[1] = 0x08;
-  parameter[2] = 0x11;
-  parameter[3] = 0x08;
-  parameter[4] = 0x0C;
-  parameter[5] = 0x15;
-  parameter[6] = 0x39;
-  parameter[7] = 0x33;
-  parameter[8] = 0x50;
-  parameter[9] = 0x36;
-  parameter[10] = 0x13;
-  parameter[11] = 0x14;
-  parameter[12] = 0x29;
-  parameter[13] = 0x2D;
-  ST7789H2_WriteReg(ST7789H2_PV_GAMMA_CTRL, parameter, 14); 
-  
-  /* Negative Voltage Gamma Control */     
-  parameter[0] = 0xD0;
-  parameter[1] = 0x08;
-  parameter[2] = 0x10;
-  parameter[3] = 0x08;
-  parameter[4] = 0x06;
-  parameter[5] = 0x06;
-  parameter[6] = 0x39;
-  parameter[7] = 0x44;
-  parameter[8] = 0x51;
-  parameter[9] = 0x0B;
-  parameter[10] = 0x16;
-  parameter[11] = 0x14;
-  parameter[12] = 0x2F;
-  parameter[13] = 0x31;
-  ST7789H2_WriteReg(ST7789H2_NV_GAMMA_CTRL, parameter, 14); 
-  
-  /* Display ON command */
-  ST7789H2_DisplayOn();  
-  
-  /* Tearing Effect Line On: Option (00h:VSYNC Interface OFF, 01h:VSYNC Interface ON) */
-  parameter[0] = 0x00;     
-  ST7789H2_WriteReg(ST7789H2_TEARING_EFFECT, parameter, 1);
-
-}
-
 /**
-  * @brief  Set the Display Orientation.
-  * @param  orientation: ST7789H2_ORIENTATION_PORTRAIT, ST7789H2_ORIENTATION_LANDSCAPE
-  *                      or ST7789H2_ORIENTATION_LANDSCAPE_ROT180  
-  * @retval None
+  * @brief  Function to register IO bus.
+  * @param  pObj Component object pointer.
+  * @param  pIO  Component IO pointer.
+  * @retval Error status.
   */
-void ST7789H2_SetOrientation(uint32_t orientation)
+int32_t ST7789H2_RegisterBusIO(ST7789H2_Object_t *pObj, ST7789H2_IO_t *pIO)
 {
-  uint8_t   parameter[6];
+  int32_t ret;
 
-  if(orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+  if (pObj == NULL)
   {
-    parameter[0] = 0x00;     
-  }
-  else if(orientation == ST7789H2_ORIENTATION_LANDSCAPE_ROT180)
-  {
-    /* Vertical Scrolling Definition */
-    /* TFA describes the Top Fixed Area */
-    parameter[0] = 0x00;
-    parameter[1] = 0x00;
-    /* VSA describes the height of the Vertical Scrolling Area */
-    parameter[2] = 0x01;
-    parameter[3] = 0xF0;
-    /* BFA describes the Bottom Fixed Area */
-    parameter[4] = 0x00;
-    parameter[5] = 0x00; 
-    ST7789H2_WriteReg(ST7789H2_VSCRDEF, parameter, 6);
-
-    /* Vertical Scroll Start Address of RAM */
-    /* GRAM row nbr (320) - Display row nbr (240) = 80 = 0x50 */
-    parameter[0] = 0x00;
-    parameter[1] = 0x50;
-    ST7789H2_WriteReg(ST7789H2_VSCSAD, parameter, 2);
-    
-    parameter[0] = 0xC0; 
+    ret = ST7789H2_ERROR;
   }
   else
   {
-    parameter[0] = 0x60;     
+    pObj->IO.Init      = pIO->Init;
+    pObj->IO.DeInit    = pIO->DeInit;
+    pObj->IO.Address   = pIO->Address;
+    pObj->IO.WriteReg  = pIO->WriteReg;
+    pObj->IO.ReadReg   = pIO->ReadReg;
+    pObj->IO.SendData  = pIO->SendData;
+    pObj->IO.GetTick   = pIO->GetTick;
+
+    pObj->Ctx.ReadReg   = ST7789H2_ReadRegWrap;
+    pObj->Ctx.WriteReg  = ST7789H2_WriteRegWrap;
+    pObj->Ctx.SendData  = ST7789H2_SendDataWrap;
+    pObj->Ctx.handle    = pObj;
+
+    if (pObj->IO.Init != NULL)
+    {
+      ret = pObj->IO.Init();
+    }
+    else
+    {
+      ret = ST7789H2_ERROR;
+    }
   }
-  ST7789H2_WriteReg(ST7789H2_NORMAL_DISPLAY, parameter, 1);
+
+  return ret;
 }
 
 /**
-  * @brief  Enables the Display.
-  * @param  None
-  * @retval None
+  * @brief  Initialize the st7789h2 LCD component.
+  * @param  pObj pointer to component object.
+  * @param  ColorCoding Color coding.
+  * @param  Orientation Orientation.
+  * @retval Component status.
   */
-void ST7789H2_DisplayOn(void)
+int32_t ST7789H2_Init(ST7789H2_Object_t *pObj, uint32_t ColorCoding, uint32_t Orientation)
 {
-  /* Display ON command */
-  ST7789H2_WriteReg(ST7789H2_DISPLAY_ON, (uint8_t*)NULL, 0);
+  int32_t ret = ST7789H2_OK;
+  uint8_t parameter[28];
 
-  /* Sleep Out command */
-  ST7789H2_WriteReg(ST7789H2_SLEEP_OUT, (uint8_t*)NULL, 0);
+  if (pObj->IsInitialized == 0U)
+  {
+    /* Sleep In Command */
+    parameter[1] = 0;
+    parameter[0] = ST7789H2_SLEEP_IN;
+    ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+    /* Wait for 10ms */
+    ST7789H2_Delay(pObj, 10);
+
+    /* SW Reset Command */
+    parameter[0] = ST7789H2_SW_RESET;
+    ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+    /* Wait for 200ms */
+    ST7789H2_Delay(pObj, 200);
+
+    /* Sleep Out Command */
+    parameter[0] = ST7789H2_SLEEP_OUT;
+    ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+    /* Wait for 120ms */
+    ST7789H2_Delay(pObj, 120);
+
+    /* Memory access control */
+    if (Orientation == ST7789H2_ORIENTATION_PORTRAIT)
+    {
+      parameter[0] = 0x00; /* MY = 0, MX = 0, MV = 0 */
+    }
+    else if (Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+    {
+      parameter[0] = 0xA0; /* MY = 1, MX = 0, MV = 1 */
+    }
+    else if (Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180)
+    {
+      parameter[0] = 0xC0; /* MY = 1, MX = 1, MV = 0 */
+    }
+    else /* Orientation == ST7789H2_ORIENTATION_LANDSCAPE_ROT180 */
+    {
+      parameter[0] = 0x60; /* MY = 0, MX = 1, MV = 1 */
+    }
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_MADCTL, parameter, 1);
+
+    /* Color mode 16bits/pixel */
+    parameter[0] = (uint8_t) ColorCoding;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_COLOR_MODE, parameter, 1);
+
+    /* Display inversion On */
+    parameter[0] = ST7789H2_DISPLAY_INVERSION_ON;
+    ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+
+    /* Set Column address CASET */
+    if (Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+    {
+      parameter[0] = 0x00; /* XS[15:8] */
+      parameter[1] = 0x00;
+      parameter[2] = 0x50; /* XS[7:0] */
+      parameter[3] = 0x00;
+      parameter[4] = 0x01; /* XE[15:8] */
+      parameter[5] = 0x00;
+      parameter[6] = 0x3F; /* XE[7:0] */
+      parameter[7] = 0x00;
+    }
+    else
+    {
+      parameter[0] = 0x00; /* XS[15:8] */
+      parameter[1] = 0x00;
+      parameter[2] = 0x00; /* XS[7:0] */
+      parameter[3] = 0x00;
+      parameter[4] = 0x00; /* XE[15:8] */
+      parameter[5] = 0x00;
+      parameter[6] = 0xEF; /* XE[7:0] */
+      parameter[7] = 0x00;
+    }
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_CASET, parameter, 4);
+    /* Set Row address RASET */
+    if (Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180)
+    {
+      parameter[0] = 0x00; /* YS[15:8] */
+      parameter[1] = 0x00;
+      parameter[2] = 0x50; /* YS[7:0] */
+      parameter[3] = 0x00;
+      parameter[4] = 0x01; /* YE[15:8] */
+      parameter[5] = 0x00;
+      parameter[6] = 0x3F; /* YE[7:0] */
+      parameter[7] = 0x00;
+    }
+    else
+    {
+      parameter[0] = 0x00; /* YS[15:8] */
+      parameter[1] = 0x00;
+      parameter[2] = 0x00; /* YS[7:0] */
+      parameter[3] = 0x00;
+      parameter[4] = 0x00; /* YE[15:8] */
+      parameter[5] = 0x00;
+      parameter[6] = 0xEF; /* YE[7:0] */
+      parameter[7] = 0x00;
+    }
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_RASET, parameter, 4);
+
+    /*--------------- ST7789H2 Frame rate setting ----------------------------*/
+    /* PORCH control setting */
+    parameter[0] = 0x0C;
+    parameter[1] = 0x00;
+    parameter[2] = 0x0C;
+    parameter[3] = 0x00;
+    parameter[4] = 0x00;
+    parameter[5] = 0x00;
+    parameter[6] = 0x33;
+    parameter[7] = 0x00;
+    parameter[8] = 0x33;
+    parameter[9] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_PORCH_CTRL, parameter, 5);
+
+    /* GATE control setting */
+    parameter[0] = 0x35;
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_GATE_CTRL, parameter, 1);
+
+    /*--------------- ST7789H2 Power setting ---------------------------------*/
+    /* VCOM setting */
+    parameter[0] = 0x1F;
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_VCOM_SET, parameter, 1);
+
+    /* LCM Control setting */
+    parameter[0] = 0x2C;
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_LCM_CTRL, parameter, 1);
+
+    /* VDV and VRH Command Enable */
+    parameter[0] = 0x01;
+    parameter[1] = 0x00;
+    parameter[2] = 0xC3;
+    parameter[3] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_VDV_VRH_EN, parameter, 2);
+
+    /* VDV Set */
+    parameter[0] = 0x20;
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_VDV_SET, parameter, 1);
+
+    /* Frame Rate Control in normal mode */
+    parameter[0] = 0x0F;
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_FR_CTRL, parameter, 1);
+
+    /* Power Control */
+    parameter[0] = 0xA4;
+    parameter[1] = 0x00;
+    parameter[2] = 0xA1;
+    parameter[3] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_POWER_CTRL, parameter, 2);
+
+    /*--------------- ST7789H2 Gamma setting ---------------------------------*/
+    /* Positive Voltage Gamma Control */
+    parameter[0]  = 0xD0;
+    parameter[1]  = 0x00;
+    parameter[2]  = 0x08;
+    parameter[3]  = 0x00;
+    parameter[4]  = 0x11;
+    parameter[5]  = 0x00;
+    parameter[6]  = 0x08;
+    parameter[7]  = 0x00;
+    parameter[8]  = 0x0C;
+    parameter[9]  = 0x00;
+    parameter[10] = 0x15;
+    parameter[11] = 0x00;
+    parameter[12] = 0x39;
+    parameter[13] = 0x00;
+    parameter[14] = 0x33;
+    parameter[15] = 0x00;
+    parameter[16] = 0x50;
+    parameter[17] = 0x00;
+    parameter[18] = 0x36;
+    parameter[19] = 0x00;
+    parameter[20] = 0x13;
+    parameter[21] = 0x00;
+    parameter[22] = 0x14;
+    parameter[23] = 0x00;
+    parameter[24] = 0x29;
+    parameter[25] = 0x00;
+    parameter[26] = 0x2D;
+    parameter[27] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_PV_GAMMA_CTRL, parameter, 14);
+
+    /* Negative Voltage Gamma Control */
+    parameter[0]  = 0xD0;
+    parameter[1]  = 0x00;
+    parameter[2]  = 0x08;
+    parameter[3]  = 0x00;
+    parameter[4]  = 0x10;
+    parameter[5]  = 0x00;
+    parameter[6]  = 0x08;
+    parameter[7]  = 0x00;
+    parameter[8]  = 0x06;
+    parameter[9]  = 0x00;
+    parameter[10] = 0x06;
+    parameter[11] = 0x00;
+    parameter[12] = 0x39;
+    parameter[13] = 0x00;
+    parameter[14] = 0x44;
+    parameter[15] = 0x00;
+    parameter[16] = 0x51;
+    parameter[17] = 0x00;
+    parameter[18] = 0x0B;
+    parameter[19] = 0x00;
+    parameter[20] = 0x16;
+    parameter[21] = 0x00;
+    parameter[22] = 0x14;
+    parameter[23] = 0x00;
+    parameter[24] = 0x2F;
+    parameter[25] = 0x00;
+    parameter[26] = 0x31;
+    parameter[27] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_NV_GAMMA_CTRL, parameter, 14);
+
+    /* Tearing Effect Line On: Option (00h:VSYNC Interface OFF, 01h:VSYNC Interface ON) */
+    parameter[0] = 0x01;
+    parameter[1] = 0x00;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_TE_LINE_ON, parameter, 1);
+
+    pObj->IsInitialized = 1U;
+    pObj->Orientation   = Orientation;
+  }
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
 }
 
 /**
-  * @brief  Disables the Display.
-  * @param  None
-  * @retval None
+  * @brief  De-Initialize the st7789h2 LCD Component.
+  * @param  pObj pointer to component object.
+  * @retval Component status.
   */
-void ST7789H2_DisplayOff(void)
+int32_t ST7789H2_DeInit(ST7789H2_Object_t *pObj)
 {
-  uint8_t   parameter[1];
-  parameter[0] = 0xFE;
-  /* Display OFF command */
-  ST7789H2_WriteReg(ST7789H2_DISPLAY_OFF, parameter, 1);  
-  /* Sleep In Command */
-  ST7789H2_WriteReg(ST7789H2_SLEEP_IN, (uint8_t*)NULL, 0); 
-  /* Wait for 10ms */
-  LCD_IO_Delay(10);  
-}
+  int32_t ret = ST7789H2_OK;
+  uint8_t parameter[2];
 
-/**
-  * @brief  Get the LCD pixel Width.
-  * @param  None
-  * @retval The Lcd Pixel Width
-  */
-uint16_t ST7789H2_GetLcdPixelWidth(void)
-{
- return (uint16_t)ST7789H2_LCD_PIXEL_WIDTH;
-}
+  if (pObj->IsInitialized != 0U)
+  {
+    ret += ST7789H2_DisplayOff(pObj);
 
-/**
-  * @brief  Get the LCD pixel Height.
-  * @param  None
-  * @retval The Lcd Pixel Height
-  */
-uint16_t ST7789H2_GetLcdPixelHeight(void)
-{
- return (uint16_t)ST7789H2_LCD_PIXEL_HEIGHT;
+    /* Power Off sequence ----------------------------------------------------*/
+    /* Sleep In Command */
+    parameter[1] = 0;
+    parameter[0] = ST7789H2_SLEEP_IN;
+    ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+    /* Wait for 10ms */
+    ST7789H2_Delay(pObj, 10);
+
+    pObj->IsInitialized = 0;
+  }
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
 }
 
 /**
   * @brief  Get the st7789h2 ID.
-  * @param  None
-  * @retval The st7789h2 ID 
+  * @param  pObj pointer to component object.
+  * @param  Id   pointer to component id.
+  * @retval Component status.
   */
-uint16_t ST7789H2_ReadID(void)
+int32_t ST7789H2_ReadID(ST7789H2_Object_t *pObj, uint32_t *Id)
 {
-  LCD_IO_Init();
-  
-  return ST7789H2_ReadReg(ST7789H2_LCD_ID);
-}
+  int32_t ret;
+  uint8_t st7789h2_id[4];
 
-/**
-  * @brief  Set Cursor position.
-  * @param  Xpos: specifies the X position.
-  * @param  Ypos: specifies the Y position.
-  * @retval None
-  */
-void ST7789H2_SetCursor(uint16_t Xpos, uint16_t Ypos)
-{
-  uint8_t   parameter[4];
-  /* CASET: Comumn Addrses Set */
-  parameter[0] = 0x00;     
-  parameter[1] = 0x00 + Xpos;
-  parameter[2] = 0x00;
-  parameter[3] = 0xEF + Xpos;
-  ST7789H2_WriteReg(ST7789H2_CASET, parameter, 4);
-  /* RASET: Row Addrses Set */  
-  parameter[0] = 0x00;
-  parameter[1] = 0x00 + Ypos;
-  parameter[2] = 0x00;
-  parameter[3] = 0xEF + Ypos;
-  ST7789H2_WriteReg(ST7789H2_RASET, parameter, 4);
-}
+  /* Get ID from component */
+  ret = st7789h2_read_reg(&pObj->Ctx, ST7789H2_READ_ID1, st7789h2_id, 2);
 
-/**
-  * @brief  Write pixel.   
-  * @param  Xpos: specifies the X position.
-  * @param  Ypos: specifies the Y position.
-  * @param  RGBCode: the RGB pixel color in RGB565 format
-  * @retval None
-  */
-void ST7789H2_WritePixel(uint16_t Xpos, uint16_t Ypos, uint16_t RGBCode)
-{
-  /* Set Cursor */
-  ST7789H2_SetCursor(Xpos, Ypos);
+  *Id = (uint32_t)st7789h2_id[2] | ((uint32_t)st7789h2_id[3] << 8U);
 
-  /* Prepare to write to LCD RAM */
-  ST7789H2_WriteReg(ST7789H2_WRITE_RAM, (uint8_t*)NULL, 0);   /* RAM write data command */
-
-  /* Write RAM data */
-  LCD_IO_WriteData(RGBCode);
-}
-
-/**
-  * @brief  Read pixel.
-  * @param  Xpos: specifies the X position.
-  * @param  Ypos: specifies the Y position.
-  * @retval The RGB pixel color in RGB565 format
-  */
-uint16_t ST7789H2_ReadPixel(uint16_t Xpos, uint16_t Ypos)
-{
-  ST7789H2_Rgb888 rgb888;
-  uint8_t          r, g, b;
-  uint16_t         rgb565;
-
-  /* Set Cursor */
-  ST7789H2_SetCursor(Xpos, Ypos);
-  
-  /* Read RGB888 data from LCD RAM */
-  rgb888 = ST7789H2_ReadPixel_rgb888(Xpos, Ypos);
-  
-  /* Convert RGB888 to RGB565 */
-  r = ((rgb888.red & 0xF8) >> 3);    /* Extract the red component 5 most significant bits */
-  g = ((rgb888.green & 0xFC) >> 2);  /* Extract the green component 6 most significant bits */
-  b = ((rgb888.blue & 0xF8) >> 3);   /* Extract the blue component 5 most significant bits */
-
-  rgb565 = ((uint16_t)(r) << 11) + ((uint16_t)(g) << 5) + ((uint16_t)(b) << 0);
-  
-  return (rgb565);
-}
-
-/**
-  * @brief  Writes to the selected LCD register.
-  * @param  Command: command value (or register address as named in st7789h2 doc).
-  * @param  Parameters: pointer on parameters value (if command uses one or several parameters).
-  * @param  NbParameters: number of command parameters (0 if no parameter)
-  * @retval None
-  */
-void ST7789H2_WriteReg(uint8_t Command, uint8_t *Parameters, uint8_t NbParameters)
-{
-  uint8_t   i;
-
-  /* Send command */
-  LCD_IO_WriteReg(Command);
-  
-  /* Send command's parameters if any */
-  for (i=0; i<NbParameters; i++)
+  if (ret != ST7789H2_OK)
   {
-    LCD_IO_WriteData(Parameters[i]);
+    ret = ST7789H2_ERROR;
   }
+
+  return ret;
 }
 
 /**
-  * @brief  Reads the selected LCD Register.
-  * @param  Command: command value (or register address as named in st7789h2 doc).
-  * @retval Register Value.
+  * @brief  Set the display on.
+  * @param  pObj pointer to component object.
+  * @retval Component status.
   */
-uint8_t ST7789H2_ReadReg(uint8_t Command)
+int32_t ST7789H2_DisplayOn(ST7789H2_Object_t *pObj)
 {
-  /* Send command */
-  LCD_IO_WriteReg(Command);
+  int32_t ret = ST7789H2_OK;
+  uint8_t parameter[2];
 
-  /* Read dummy data */
-  LCD_IO_ReadData();
-  
-  /* Read register value */
-  return (LCD_IO_ReadData());
-}
+  parameter[1] = 0x00U;
 
-/**
-  * @brief  Sets a display window
-  * @param  Xpos:   specifies the X bottom left position.
-  * @param  Ypos:   specifies the Y bottom left position.
-  * @param  Height: display window height.
-  * @param  Width:  display window width.
-  * @retval None
-  */
-void ST7789H2_SetDisplayWindow(uint16_t Xpos, uint16_t Ypos, uint16_t Width, uint16_t Height)
-{
-  if (Xpos < ST7789H2_LCD_PIXEL_WIDTH)
+  /* Display ON command */
+  parameter[0] = ST7789H2_DISPLAY_ON;
+  ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+
+  /* Sleep Out command */
+  parameter[0] = ST7789H2_SLEEP_OUT;
+  ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+
+  if (ret != ST7789H2_OK)
   {
-    WindowsXstart = Xpos;
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
+}
+
+/**
+  * @brief  Set the display off.
+  * @param  pObj pointer to component object.
+  * @retval Component status.
+  */
+int32_t ST7789H2_DisplayOff(ST7789H2_Object_t *pObj)
+{
+  int32_t ret = ST7789H2_OK;
+  uint8_t parameter[2];
+
+  /* Display OFF command */
+  parameter[0] = 0xFEU;
+  parameter[1] = 0x00U;
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_DISPLAY_OFF_PWR_SAVE, parameter, 1);
+
+  /* Sleep In Command */
+  parameter[0] = ST7789H2_SLEEP_IN;
+  ret += st7789h2_send_data(&pObj->Ctx, parameter, 1);
+
+  /* Wait for 10ms */
+  ST7789H2_Delay(pObj, 10);
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
+}
+
+/**
+  * @brief  Set the display brightness.
+  * @param  pObj Pointer to component object.
+  * @param  Brightness Display brightness to be set.
+  * @retval Component status.
+  */
+int32_t ST7789H2_SetBrightness(ST7789H2_Object_t *pObj, uint32_t Brightness)
+{
+  /* Feature not supported */
+  (void)pObj;
+  (void)Brightness;
+  return ST7789H2_ERROR;
+}
+
+/**
+  * @brief  Get the display brightness.
+  * @param  pObj Pointer to component object.
+  * @param  Brightness Current display brightness.
+  * @retval Component status.
+  */
+int32_t ST7789H2_GetBrightness(ST7789H2_Object_t *pObj, uint32_t *Brightness)
+{
+  /* Feature not supported */
+  (void)pObj;
+  (void)Brightness;
+  return ST7789H2_ERROR;
+}
+
+/**
+  * @brief  Set the display orientation.
+  * @param  pObj Pointer to component object.
+  * @param  Orientation Display orientation to be set.
+  * @retval Component status.
+  */
+int32_t ST7789H2_SetOrientation(ST7789H2_Object_t *pObj, uint32_t Orientation)
+{
+  int32_t ret = ST7789H2_OK;
+  uint8_t   parameter[2];
+
+  /* Memory access control */
+  if (Orientation == ST7789H2_ORIENTATION_PORTRAIT)
+  {
+    parameter[0] = 0x00U; /* MY = 0, MX = 0, MV = 0 */
+  }
+  else if (Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+  {
+    parameter[0] = 0xA0U; /* MY = 1, MX = 0, MV = 1 */
+  }
+  else if (Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180)
+  {
+    parameter[0] = 0xC0U; /* MY = 1, MX = 1, MV = 0 */
+  }
+  else /* Orientation == ST7789H2_ORIENTATION_LANDSCAPE_ROT180 */
+  {
+    parameter[0] = 0x60U; /* MY = 0, MX = 1, MV = 1 */
+  }
+  parameter[1] = 0x00U;
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_MADCTL, parameter, 1);
+
+  pObj->Orientation = Orientation;
+
+  return ret;
+}
+
+/**
+  * @brief  Get the display orientation.
+  * @param  pObj Pointer to component object.
+  * @param  Orientation Current display orientation.
+  * @retval Component status.
+  */
+int32_t ST7789H2_GetOrientation(ST7789H2_Object_t *pObj, uint32_t *Orientation)
+{
+  int32_t ret = ST7789H2_OK;
+
+  *Orientation = pObj->Orientation;
+
+  return ret;
+}
+
+/**
+  * @brief  Set cursor.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @retval Component status.
+  */
+int32_t ST7789H2_SetCursor(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos)
+{
+  int32_t ret = ST7789H2_OK;
+  uint8_t parameter[8];
+
+  /* CASET: Column Address Set */
+  if (pObj->Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+  {
+    parameter[0] = (uint8_t)((Xpos + 0x50U) >> 8);  /* XS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = (uint8_t)(Xpos + 0x50U);         /* XS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x01;                            /* XE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0x3F;                            /* XE[7:0] */
+    parameter[7] = 0x00;
   }
   else
   {
-    WindowsXstart = 0;
+    parameter[0] = (uint8_t)(Xpos >> 8);  /* XS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = (uint8_t) Xpos;        /* XS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x00;                  /* XE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0xEF;                  /* XE[7:0] */
+    parameter[7] = 0x00;
   }
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_CASET, parameter, 4);
 
-  if (Ypos < ST7789H2_LCD_PIXEL_HEIGHT)
+  /* RASET: Row Address Set */
+  if (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180)
   {
-    WindowsYstart = Ypos;
-  }
-  else
-  {
-    WindowsYstart = 0;
-  }
-
-  if (Width  + Xpos <= ST7789H2_LCD_PIXEL_WIDTH)
-  {
-    WindowsXend = Width  + Xpos - 1;
-  }
-  else
-  {
-    WindowsXend = ST7789H2_LCD_PIXEL_WIDTH - 1;
-  }
-
-  if (Height + Ypos <= ST7789H2_LCD_PIXEL_HEIGHT)
-  {
-    WindowsYend = Height + Ypos - 1;
+    parameter[0] = (uint8_t)((Ypos + 0x50U) >> 8);  /* YS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = (uint8_t)(Ypos + 0x50U);         /* YS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x01;                            /* YE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0x3F;                            /* YE[7:0] */
+    parameter[7] = 0x00;
   }
   else
   {
-    WindowsYend = ST7789H2_LCD_PIXEL_HEIGHT-1;
+    parameter[0] = (uint8_t)(Ypos >> 8);  /* YS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = (uint8_t) Ypos;        /* YS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x00;                  /* YE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0xEF;                  /* YE[7:0] */
+    parameter[7] = 0x00;
   }
-}
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_RASET, parameter, 4);
 
-/**
-  * @brief  Draw vertical line.
-  * @param  RGBCode: Specifies the RGB color in RGB565 format
-  * @param  Xpos:     specifies the X position.
-  * @param  Ypos:     specifies the Y position.
-  * @param  Length:   specifies the Line length.  
-  * @retval None
-  */
-void ST7789H2_DrawHLine(uint16_t RGBCode, uint16_t Xpos, uint16_t Ypos, uint16_t Length)
-{
-  uint16_t counter = 0;
-  
-  /* Set Cursor */
-  ST7789H2_SetCursor(Xpos, Ypos); 
-  
-  /* Prepare to write to LCD RAM */
-  ST7789H2_WriteReg(ST7789H2_WRITE_RAM, (uint8_t*)NULL, 0);   /* RAM write data command */
-  
-  /* Sent a complete line */
-  for(counter = 0; counter < Length; counter++)
+  if (ret != ST7789H2_OK)
   {
-    LCD_IO_WriteData(RGBCode);
-  }  
-}
-
-/**
-  * @brief  Draw vertical line.
-  * @param  RGBCode: Specifies the RGB color    
-  * @param  Xpos:     specifies the X position.
-  * @param  Ypos:     specifies the Y position.
-  * @param  Length:   specifies the Line length.  
-  * @retval None
-  */
-void ST7789H2_DrawVLine(uint16_t RGBCode, uint16_t Xpos, uint16_t Ypos, uint16_t Length)
-{
-  uint16_t counter = 0;
-
-  /* Set Cursor */
-  ST7789H2_SetCursor(Xpos, Ypos);
-  
-  /* Prepare to write to LCD RAM */
-  ST7789H2_WriteReg(ST7789H2_WRITE_RAM, (uint8_t*)NULL, 0);   /* RAM write data command */
-
-  /* Fill a complete vertical line */
-  for(counter = 0; counter < Length; counter++)
-  {
-    ST7789H2_WritePixel(Xpos, Ypos + counter, RGBCode);
+    ret = ST7789H2_ERROR;
   }
+
+  return ret;
 }
 
 /**
-  * @brief  Displays a bitmap picture.
-  * @param  BmpAddress: Bmp picture address.
-  * @param  Xpos: Bmp X position in the LCD
-  * @param  Ypos: Bmp Y position in the LCD    
-  * @retval None
+  * @brief  Display a bitmap picture.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  pBmp Pointer to bitmap.
+  * @retval Component status.
   */
-void ST7789H2_DrawBitmap(uint16_t Xpos, uint16_t Ypos, uint8_t *pbmp)
+int32_t ST7789H2_DrawBitmap(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint8_t *pBmp)
 {
-  uint32_t index = 0, size = 0;
-  uint32_t posY;
-  uint32_t nb_line = 0;
-  uint16_t Xsize = WindowsXend - WindowsXstart + 1;
-  uint16_t Ysize = WindowsYend - WindowsYstart + 1;
+  int32_t  ret = ST7789H2_OK;
+  uint8_t  parameter[8];
+  uint32_t index, size;
+  uint32_t width, height;
+  uint32_t Ystart, Ystop;
 
-  /* Read bitmap size */
-  size = *(volatile uint16_t *) (pbmp + 2);
-  size |= (*(volatile uint16_t *) (pbmp + 4)) << 16;
+  /* Read file size */
+  size = ((uint32_t)pBmp[5] << 24) | ((uint32_t)pBmp[4] << 16) | ((uint32_t)pBmp[3] << 8) | (uint32_t)pBmp[2];
   /* Get bitmap data address offset */
-  index = *(volatile uint16_t *) (pbmp + 10);
-  index |= (*(volatile uint16_t *) (pbmp + 12)) << 16;
-  size = (size - index)/2;
-  pbmp += index;
+  index = ((uint32_t)pBmp[13] << 24) | ((uint32_t)pBmp[12] << 16) | ((uint32_t)pBmp[11] << 8) | (uint32_t)pBmp[10];
+  /* Get image width */
+  width = ((uint32_t)pBmp[21] << 24) | ((uint32_t)pBmp[20] << 16) | ((uint32_t)pBmp[19] << 8) | (uint32_t)pBmp[18];
+  width--;
+  /* Get image heigth */
+  height = ((uint32_t)pBmp[25] << 24) | ((uint32_t)pBmp[24] << 16) | ((uint32_t)pBmp[23] << 8) | (uint32_t)pBmp[22];
+  height--;
+  /* Get size of datas */
+  size = size - index;
+  size = size / 2U;
 
-  for (posY = (Ypos + Ysize); posY > Ypos; posY--)  /* In BMP files the line order is inverted */
+  /* Compute new Y start and stop values */
+  if (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT)
   {
-    /* Set Cursor */
-    ST7789H2_SetCursor(Xpos, posY - 1);
-
-    /* Draw one line of the picture */
-    ST7789H2_DrawRGBHLine(Xpos, posY - 1, Xsize, (pbmp + (nb_line * Xsize * 2)));
-    nb_line++;
+    Ystart = 319U - (Ypos + height);
+    Ystop  = 319U - Ypos;
   }
+  else if (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180)
+  {
+    Ystart = 319U - (Ypos + 0x50U + height);
+    Ystop  = 319U - (Ypos + 0x50U);
+  }
+  else
+  {
+    Ystart = 239U - (Ypos + height);
+    Ystop  = 239U - Ypos;
+  }
+
+  /* Set GRAM Area - Partial Display Control */
+  if (pObj->Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+  {
+    parameter[0] = (uint8_t)((Xpos + 0x50U) >> 8);          /* XS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = (uint8_t)(Xpos + 0x50U);                 /* XS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = (uint8_t)((Xpos + width + 0x50U) >> 8);  /* XE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = (uint8_t)(Xpos + width + 0x50U);         /* XE[7:0] */
+    parameter[7] = 0x00;
+  }
+  else
+  {
+    parameter[0] = (uint8_t)(Xpos >> 8);            /* XS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = (uint8_t) Xpos;                  /* XS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = (uint8_t)((Xpos + width) >> 8);  /* XE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = (uint8_t)(Xpos + width);         /* XE[7:0] */
+    parameter[7] = 0x00;
+  }
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_CASET, parameter, 4);
+  parameter[0] = (uint8_t)(Ystart >> 8);  /* YS[15:8] */
+  parameter[1] = 0x00;
+  parameter[2] = (uint8_t) Ystart;        /* YS[7:0] */
+  parameter[3] = 0x00;
+  parameter[4] = (uint8_t)(Ystop >> 8);   /* YE[15:8] */
+  parameter[5] = 0x00;
+  parameter[6] = (uint8_t) Ystop;         /* YE[7:0] */
+  parameter[7] = 0x00;
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_RASET, parameter, 4);
+  if ((pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT) || (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180))
+  {
+    /* Memory access control: Invert MY */
+    parameter[0] = (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT) ? 0x80U : 0x40U;
+    parameter[1] = 0x00U;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_MADCTL, parameter, 1);
+  }
+  else
+  {
+    /* Memory access control: Invert MX */
+    parameter[0] = (pObj->Orientation == ST7789H2_ORIENTATION_LANDSCAPE) ? 0xE0U : 0x20U;
+    parameter[1] = 0x00U;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_MADCTL, parameter, 1);
+  }
+
+  /* Write GRAM */
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, &pBmp[index], (uint16_t) size);
+
+  /* Restore GRAM Area - Partial Display Control */
+  if (pObj->Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
+  {
+    parameter[0] = 0x00; /* XS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = 0x50; /* XS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x01; /* XE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0x3F; /* XE[7:0] */
+    parameter[7] = 0x00;
+  }
+  else
+  {
+    parameter[0] = 0x00; /* XS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = 0x00; /* XS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x00; /* XE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0xEF; /* XE[7:0] */
+    parameter[7] = 0x00;
+  }
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_CASET, parameter, 4);
+  if (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180)
+  {
+    parameter[0] = 0x00; /* YS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = 0x50; /* YS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x01; /* YE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0x3F; /* YE[7:0] */
+    parameter[7] = 0x00;
+  }
+  else
+  {
+    parameter[0] = 0x00; /* YS[15:8] */
+    parameter[1] = 0x00;
+    parameter[2] = 0x00; /* YS[7:0] */
+    parameter[3] = 0x00;
+    parameter[4] = 0x00; /* YE[15:8] */
+    parameter[5] = 0x00;
+    parameter[6] = 0xEF; /* YE[7:0] */
+    parameter[7] = 0x00;
+  }
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_RASET, parameter, 4);
+  if ((pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT) || (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT_ROT180))
+  {
+    /* Memory access control: Re-invert MY */
+    parameter[0] = (pObj->Orientation == ST7789H2_ORIENTATION_PORTRAIT) ? 0x00U : 0xC0U;
+    parameter[1] = 0x00U;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_MADCTL, parameter, 1);
+  }
+  else
+  {
+    /* Memory access control: Re-invert MX */
+    parameter[0] = (pObj->Orientation == ST7789H2_ORIENTATION_LANDSCAPE) ? 0xA0U : 0x60U;
+    parameter[1] = 0x00U;
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_MADCTL, parameter, 1);
+  }
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
 }
 
 /**
-  * @brief  Displays picture.
-  * @param  pdata: picture address.
-  * @param  Xpos: Image X position in the LCD
-  * @param  Ypos: Image Y position in the LCD
-  * @param  Xsize: Image X size in the LCD
-  * @param  Ysize: Image Y size in the LCD
-  * @retval None
+  * @brief  Fill rectangle with RGB buffer.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  pData Pointer on RGB pixels buffer.
+  * @param  Width Width of the rectangle.
+  * @param  Height Height of the rectangle.
+  * @retval Component status.
   */
-void ST7789H2_DrawRGBImage(uint16_t Xpos, uint16_t Ypos, uint16_t Xsize, uint16_t Ysize, uint8_t *pdata)
+int32_t ST7789H2_FillRGBRect(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint8_t *pData, uint32_t Width, uint32_t Height)
 {
-  uint32_t posY;
-  uint32_t nb_line = 0;
+  int32_t  ret = ST7789H2_OK;
+  uint8_t  buffer[480];
+  uint8_t *rect; 
+  uint32_t i, j;
 
-  for (posY = Ypos; posY < (Ypos + Ysize); posY ++)
+  rect = pData;
+  
+  for(i = 0; i < Height; i++)
   {
     /* Set Cursor */
-    ST7789H2_SetCursor(Xpos, posY);
+    ret += ST7789H2_SetCursor(pObj, Xpos, Ypos + i);
 
-    /* Draw one line of the picture */
-    ST7789H2_DrawRGBHLine(Xpos, posY, Xsize, (pdata + (nb_line * Xsize * 2)));
-    nb_line++;
+    /* Sent a complete line */
+    for(j = 0; j < Width; j++)
+    {
+      buffer[2U*j]      = *rect;
+      rect++;
+      buffer[(2U*j)+1U] = *rect;
+      rect++;
+    }
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, buffer, (uint16_t) Width);
   }
+
+  if(ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
 }
 
-
-/******************************************************************************
-                            Static Functions
-*******************************************************************************/
-
 /**
-  * @brief  Read pixel from LCD RAM in RGB888 format
-  * @param  Xpos: specifies the X position.
-  * @param  Ypos: specifies the Y position.
-  * @retval Each RGB pixel color components in a structure
+  * @brief  Display a horizontal line.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  Length Length of the line.
+  * @param  Color  Color of the line.
+  * @retval Component status.
   */
-static ST7789H2_Rgb888 ST7789H2_ReadPixel_rgb888(uint16_t Xpos, uint16_t Ypos)
+int32_t ST7789H2_DrawHLine(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Length, uint32_t Color)
 {
-  ST7789H2_Rgb888 rgb888;
-  uint16_t         rgb888_part1, rgb888_part2;
-
-  /* In LCD RAM, pixels are 24 bits packed and read with 16 bits access
-   * Here is the pixels components arrangement in memory :
-   *       bits:  15 14 13 12 11 10 09 08 | 07 06 05 04 03 02 01 00
-   * address 0 :     red pixel 0    X  X  |   green pixel 0   X  X
-   * address 1 :    blue pixel 0    X  X  |     red pixel 1   X  X
-   * address 2 :   green pixel 1    X  X  |    blue pixel 1   X  X
-   */
+  int32_t  ret = ST7789H2_OK;
+  uint8_t  parameter[2];
+  uint32_t i;
 
   /* Set Cursor */
-  ST7789H2_SetCursor(Xpos, Ypos);
-  /* Prepare to read LCD RAM */
-  ST7789H2_WriteReg(ST7789H2_READ_RAM, (uint8_t*)NULL, 0);   /* RAM read data command */
-  /* Dummy read */
-  LCD_IO_ReadData();
-  /* Read first part of the RGB888 data */
-  rgb888_part1 = LCD_IO_ReadData();
-  /* Read first part of the RGB888 data */
-  rgb888_part2 = LCD_IO_ReadData();
+  ret += ST7789H2_SetCursor(pObj, Xpos, Ypos);
 
-  /* red component */
-  rgb888.red   = (rgb888_part1 & 0xFC00) >> 8;
-  /* green component */
-  rgb888.green = (rgb888_part1 & 0x00FC) >> 0;
-  /* blue component */
-  rgb888.blue  = (rgb888_part2 & 0xFC00) >> 8;
+  /* Sent a complete line */
+  parameter[0] = (uint8_t)(Color & 0xFFU);
+  parameter[1] = (uint8_t)((Color >> 8) & 0xFFU);
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, parameter, 1);
+  for (i = 1; i < Length; i++)
+  {
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM_CONTINUE, parameter, 1);
+  }
 
-  return rgb888;
+  /* Workaround for last pixel */
+  if ((Xpos + Length) == 240U)
+  {
+    /* Write last pixel */
+    ret += ST7789H2_SetCursor(pObj, (Xpos + Length - 1U), Ypos);
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, parameter, 1);
+  }
+  
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
 }
 
+/**
+  * @brief  Display a vertical line.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  Length Length of the line.
+  * @param  Color  Color of the line.
+  * @retval Component status.
+  */
+int32_t ST7789H2_DrawVLine(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Length, uint32_t Color)
+{
+  int32_t  ret = ST7789H2_OK;
+  uint32_t i;
+
+  /* Sent a complete line */
+  for (i = 0; i < Length; i++)
+  {
+    ret += ST7789H2_SetPixel(pObj, Xpos, (Ypos + i), Color);
+  }
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
+}
 
 /**
-  * @brief  Displays a single picture line.
-  * @param  pdata: picture address.
-  * @param  Xpos: Image X position in the LCD
-  * @param  Ypos: Image Y position in the LCD
-  * @param  Xsize: Image X size in the LCD
-  * @retval None
+  * @brief  Fill rectangle.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  Width Width of the rectangle.
+  * @param  Height Height of the rectangle.
+  * @param  Color  Color of the rectangle.
+  * @retval Component status.
   */
-static void ST7789H2_DrawRGBHLine(uint16_t Xpos, uint16_t Ypos, uint16_t Xsize, uint8_t *pdata)
+int32_t ST7789H2_FillRect(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height, uint32_t Color)
 {
-  uint32_t i = 0;
-  uint32_t posX;
-  uint16_t *rgb565 = (uint16_t*)pdata;
-  
-  /* Prepare to write to LCD RAM */
-  ST7789H2_WriteReg(ST7789H2_WRITE_RAM, (uint8_t*)NULL, 0);   /* RAM write data command */
-  
-  for (posX = Xpos; posX < (Xsize + Xpos); posX++)
+  int32_t  ret = ST7789H2_OK;
+  uint32_t i;
+
+  for (i = 0U; i < Height; i++)
   {
-    if ((posX >= WindowsXstart) && (Ypos >= WindowsYstart) &&     /* Check we are in the defined window */
-        (posX <= WindowsXend) && (Ypos <= WindowsYend))
+    if (ST7789H2_DrawHLine(pObj, Xpos, (i + Ypos), Width, Color) != ST7789H2_OK)
     {
-      if (posX != (Xsize + Xpos))     /* When writing last pixel when size is odd, the third part is not written */
-      {
-        LCD_IO_WriteData(rgb565[i]);        
-      }      
-      i++;
+      ret = ST7789H2_ERROR;
+      break;
     }
   }
+
+  return ret;
 }
 
 /**
-  * @}
-  */ 
+  * @brief  Set pixel.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  Color Color of the pixel.
+  * @retval Component status.
+  */
+int32_t ST7789H2_SetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Color)
+{
+  int32_t ret = ST7789H2_OK;
+
+  /* Set Cursor */
+  ret += ST7789H2_SetCursor(pObj, Xpos, Ypos);
+
+  /* write pixel */
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, (uint8_t *) &Color, 1);
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
+}
 
 /**
-  * @}
-  */ 
-  
+  * @brief  Get pixel.
+  * @param  pObj Pointer to component object.
+  * @param  Xpos X position on LCD.
+  * @param  Ypos Y position on LCD.
+  * @param  Color Color of the pixel.
+  * @retval Component status.
+  */
+int32_t ST7789H2_GetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t *Color)
+{
+  int32_t ret = ST7789H2_OK;
+  uint8_t parameter[6];
+
+  /* Set Cursor */
+  ret += ST7789H2_SetCursor(pObj, Xpos, Ypos);
+
+  /* read pixel */
+  ret += st7789h2_read_reg(&pObj->Ctx, ST7789H2_READ_RAM, parameter, 3);
+
+  /* Set color in RGB565 format */
+  *Color = ((((uint32_t)parameter[3] << 8) & 0xF800U) |
+            (((uint32_t)parameter[2] << 3) & 0x07E0U) |
+            (((uint32_t)parameter[5] >> 3) & 0x001FU));
+
+  if (ret != ST7789H2_OK)
+  {
+    ret = ST7789H2_ERROR;
+  }
+
+  return ret;
+}
+
+/**
+  * @brief  Get X size.
+  * @param  pObj Pointer to component object.
+  * @param  Xsize X size of LCD.
+  * @retval Component status.
+  */
+int32_t ST7789H2_GetXSize(ST7789H2_Object_t *pObj, uint32_t *XSize)
+{
+  (void)pObj;
+
+  *XSize = 240;
+
+  return ST7789H2_OK;
+}
+
+/**
+  * @brief  Get Y size.
+  * @param  pObj Pointer to component object.
+  * @param  Ysize Y size of LCD.
+  * @retval Component status.
+  */
+int32_t ST7789H2_GetYSize(ST7789H2_Object_t *pObj, uint32_t *YSize)
+{
+  (void)pObj;
+
+  *YSize = 240;
+
+  return ST7789H2_OK;
+}
 /**
   * @}
-  */ 
+  */
+
+/** @defgroup ST7789H2_Private_Functions ST7789H2 Private Functions
+  * @{
+  */
+/**
+  * @brief  Read register wrapped function.
+  * @param  handle  Component object handle.
+  * @param  Reg     The target register address to read.
+  * @param  pData   The target register value to be red.
+  * @param  Length  Buffer size to be red.
+  * @retval error status.
+  */
+static int32_t ST7789H2_ReadRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length)
+{
+  ST7789H2_Object_t *pObj = (ST7789H2_Object_t *)handle;
+
+  return pObj->IO.ReadReg(pObj->IO.Address, Reg, pData, Length);
+}
+
+/**
+  * @brief  Write register wrapped function.
+  * @param  handle Component object handle.
+  * @param  Reg    The target register address to write.
+  * @param  pData  The target register value to be written.
+  * @param  Length Buffer size to be written.
+  * @retval error status.
+  */
+static int32_t ST7789H2_WriteRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length)
+{
+  ST7789H2_Object_t *pObj = (ST7789H2_Object_t *)handle;
+
+  return pObj->IO.WriteReg(pObj->IO.Address, Reg, pData, Length);
+}
+
+/**
+  * @brief  Send data wrapped function.
+  * @param  handle Component object handle.
+  * @param  pData  The value to be written.
+  * @param  Length Buffer size to be written.
+  * @retval error status.
+  */
+static int32_t ST7789H2_SendDataWrap(void *handle, uint8_t *pData, uint16_t Length)
+{
+  ST7789H2_Object_t *pObj = (ST7789H2_Object_t *)handle;
+
+  return pObj->IO.SendData(pData, Length);
+}
+
+/**
+  * @brief  ST7789H2 delay
+  * @param  Delay Delay in ms
+  * @retval Component error status
+  */
+static void ST7789H2_Delay(ST7789H2_Object_t *pObj, uint32_t Delay)
+{
+  uint32_t tickstart;
+  tickstart = pObj->IO.GetTick();
+  while ((pObj->IO.GetTick() - tickstart) < Delay)
+  {
+  }
+}
+/**
+  * @}
+  */
 
 /**
   * @}
   */
-  
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
