@@ -6,13 +6,12 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2016 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017-2022 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
@@ -64,10 +63,10 @@ ST7789H2_Drv_t   ST7789H2_Driver =
 /** @defgroup ST7789H2_Private_FunctionPrototypes ST7789H2 Private FunctionPrototypes
   * @{
   */
-static int32_t ST7789H2_ReadRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length);
-static int32_t ST7789H2_WriteRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length);
-static int32_t ST7789H2_SendDataWrap(void *handle, uint8_t *pData, uint16_t Length);
-static void    ST7789H2_Delay(ST7789H2_Object_t *pObj, uint32_t Delay);
+static int32_t ST7789H2_ReadRegWrap(const void *handle, uint16_t Reg, uint8_t *pData, uint32_t Length);
+static int32_t ST7789H2_WriteRegWrap(const void *handle, uint16_t Reg, uint8_t *pData, uint32_t Length);
+static int32_t ST7789H2_SendDataWrap(const void *handle, uint8_t *pData, uint32_t Length);
+static void    ST7789H2_Delay(const ST7789H2_Object_t *pObj, uint32_t Delay);
 /**
   * @}
   */
@@ -403,7 +402,7 @@ int32_t ST7789H2_DeInit(ST7789H2_Object_t *pObj)
 int32_t ST7789H2_ReadID(ST7789H2_Object_t *pObj, uint32_t *Id)
 {
   int32_t ret;
-  uint8_t st7789h2_id[4];
+  uint8_t st7789h2_id[4] = {0};
 
   /* Get ID from component */
   ret = st7789h2_read_reg(&pObj->Ctx, ST7789H2_READ_ID1, st7789h2_id, 2);
@@ -482,7 +481,7 @@ int32_t ST7789H2_DisplayOff(ST7789H2_Object_t *pObj)
   * @param  Brightness Display brightness to be set.
   * @retval Component status.
   */
-int32_t ST7789H2_SetBrightness(ST7789H2_Object_t *pObj, uint32_t Brightness)
+int32_t ST7789H2_SetBrightness(const ST7789H2_Object_t *pObj, uint32_t Brightness)
 {
   /* Feature not supported */
   (void)pObj;
@@ -496,7 +495,7 @@ int32_t ST7789H2_SetBrightness(ST7789H2_Object_t *pObj, uint32_t Brightness)
   * @param  Brightness Current display brightness.
   * @retval Component status.
   */
-int32_t ST7789H2_GetBrightness(ST7789H2_Object_t *pObj, uint32_t *Brightness)
+int32_t ST7789H2_GetBrightness(const ST7789H2_Object_t *pObj, const uint32_t *Brightness)
 {
   /* Feature not supported */
   (void)pObj;
@@ -648,10 +647,10 @@ int32_t ST7789H2_DrawBitmap(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypo
   /* Get image width */
   width = ((uint32_t)pBmp[21] << 24) | ((uint32_t)pBmp[20] << 16) | ((uint32_t)pBmp[19] << 8) | (uint32_t)pBmp[18];
   width--;
-  /* Get image heigth */
+  /* Get image height */
   height = ((uint32_t)pBmp[25] << 24) | ((uint32_t)pBmp[24] << 16) | ((uint32_t)pBmp[23] << 8) | (uint32_t)pBmp[22];
   height--;
-  /* Get size of datas */
+  /* Get size of data */
   size = size - index;
   size = size / 2U;
 
@@ -721,7 +720,7 @@ int32_t ST7789H2_DrawBitmap(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypo
   }
 
   /* Write GRAM */
-  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, &pBmp[index], (uint16_t) size);
+  ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, &pBmp[index], size);
 
   /* Restore GRAM Area - Partial Display Control */
   if (pObj->Orientation == ST7789H2_ORIENTATION_LANDSCAPE)
@@ -825,7 +824,7 @@ int32_t ST7789H2_FillRGBRect(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Yp
       buffer[(2U*j)+1U] = *rect;
       rect++;
     }
-    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, buffer, (uint16_t) Width);
+    ret += st7789h2_write_reg(&pObj->Ctx, ST7789H2_WRITE_RAM, buffer, Width);
   }
 
   if(ret != ST7789H2_OK)
@@ -971,7 +970,7 @@ int32_t ST7789H2_SetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos,
 int32_t ST7789H2_GetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t *Color)
 {
   int32_t ret = ST7789H2_OK;
-  uint8_t parameter[6];
+  uint8_t parameter[6] = {0};
 
   /* Set Cursor */
   ret += ST7789H2_SetCursor(pObj, Xpos, Ypos);
@@ -998,7 +997,7 @@ int32_t ST7789H2_GetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos,
   * @param  Xsize X size of LCD.
   * @retval Component status.
   */
-int32_t ST7789H2_GetXSize(ST7789H2_Object_t *pObj, uint32_t *XSize)
+int32_t ST7789H2_GetXSize(const ST7789H2_Object_t *pObj, uint32_t *XSize)
 {
   (void)pObj;
 
@@ -1013,7 +1012,7 @@ int32_t ST7789H2_GetXSize(ST7789H2_Object_t *pObj, uint32_t *XSize)
   * @param  Ysize Y size of LCD.
   * @retval Component status.
   */
-int32_t ST7789H2_GetYSize(ST7789H2_Object_t *pObj, uint32_t *YSize)
+int32_t ST7789H2_GetYSize(const ST7789H2_Object_t *pObj, uint32_t *YSize)
 {
   (void)pObj;
 
@@ -1036,9 +1035,9 @@ int32_t ST7789H2_GetYSize(ST7789H2_Object_t *pObj, uint32_t *YSize)
   * @param  Length  Buffer size to be red.
   * @retval error status.
   */
-static int32_t ST7789H2_ReadRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length)
+static int32_t ST7789H2_ReadRegWrap(const void *handle, uint16_t Reg, uint8_t *pData, uint32_t Length)
 {
-  ST7789H2_Object_t *pObj = (ST7789H2_Object_t *)handle;
+  const ST7789H2_Object_t *pObj = (const ST7789H2_Object_t *)handle;
 
   return pObj->IO.ReadReg(pObj->IO.Address, Reg, pData, Length);
 }
@@ -1051,9 +1050,9 @@ static int32_t ST7789H2_ReadRegWrap(void *handle, uint16_t Reg, uint8_t *pData, 
   * @param  Length Buffer size to be written.
   * @retval error status.
   */
-static int32_t ST7789H2_WriteRegWrap(void *handle, uint16_t Reg, uint8_t *pData, uint16_t Length)
+static int32_t ST7789H2_WriteRegWrap(const void *handle, uint16_t Reg, uint8_t *pData, uint32_t Length)
 {
-  ST7789H2_Object_t *pObj = (ST7789H2_Object_t *)handle;
+  const ST7789H2_Object_t *pObj = (const ST7789H2_Object_t *)handle;
 
   return pObj->IO.WriteReg(pObj->IO.Address, Reg, pData, Length);
 }
@@ -1065,9 +1064,9 @@ static int32_t ST7789H2_WriteRegWrap(void *handle, uint16_t Reg, uint8_t *pData,
   * @param  Length Buffer size to be written.
   * @retval error status.
   */
-static int32_t ST7789H2_SendDataWrap(void *handle, uint8_t *pData, uint16_t Length)
+static int32_t ST7789H2_SendDataWrap(const void *handle, uint8_t *pData, uint32_t Length)
 {
-  ST7789H2_Object_t *pObj = (ST7789H2_Object_t *)handle;
+  const ST7789H2_Object_t *pObj = (const ST7789H2_Object_t *)handle;
 
   return pObj->IO.SendData(pData, Length);
 }
@@ -1077,7 +1076,7 @@ static int32_t ST7789H2_SendDataWrap(void *handle, uint8_t *pData, uint16_t Leng
   * @param  Delay Delay in ms
   * @retval Component error status
   */
-static void ST7789H2_Delay(ST7789H2_Object_t *pObj, uint32_t Delay)
+static void ST7789H2_Delay(const ST7789H2_Object_t *pObj, uint32_t Delay)
 {
   uint32_t tickstart;
   tickstart = pObj->IO.GetTick();
@@ -1100,5 +1099,3 @@ static void ST7789H2_Delay(ST7789H2_Object_t *pObj, uint32_t Delay)
 /**
   * @}
   */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -7,13 +7,12 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017-2022 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
@@ -138,9 +137,9 @@ extern "C" {
 /** @defgroup ST7789H2_REG_Exported_Types ST7789H2_REG Exported Types
   * @{
   */
-typedef int32_t (*ST7789H2_Write_Func)(void *, uint16_t, uint8_t *, uint16_t);
-typedef int32_t (*ST7789H2_Read_Func)(void *, uint16_t, uint8_t *, uint16_t);
-typedef int32_t (*ST7789H2_Send_Func)(void *, uint8_t *, uint16_t);
+typedef int32_t (*ST7789H2_Write_Func)(const void *, uint16_t, uint8_t *, uint32_t);
+typedef int32_t (*ST7789H2_Read_Func)(const void *, uint16_t, uint8_t *, uint32_t);
+typedef int32_t (*ST7789H2_Send_Func)(const void *, uint8_t *, uint32_t);
 
 typedef struct
 {
@@ -156,9 +155,9 @@ typedef struct
 /** @defgroup ST7789H2_REG_Exported_Functions ST7789H2_REG Exported Functions
   * @{
   */
-int32_t st7789h2_write_reg(ST7789H2_ctx_t *ctx, uint16_t reg, uint8_t *pdata, uint16_t length);
-int32_t st7789h2_read_reg(ST7789H2_ctx_t *ctx, uint16_t reg, uint8_t *pdata, uint16_t length);
-int32_t st7789h2_send_data(ST7789H2_ctx_t *ctx, uint8_t *pdata, uint16_t length);
+int32_t st7789h2_write_reg(const ST7789H2_ctx_t *ctx, uint16_t reg, uint8_t *pdata, uint32_t length);
+int32_t st7789h2_read_reg(const ST7789H2_ctx_t *ctx, uint16_t reg, uint8_t *pdata, uint32_t length);
+int32_t st7789h2_send_data(const ST7789H2_ctx_t *ctx, uint8_t *pdata, uint32_t length);
 /**
   * @}
   */
@@ -180,5 +179,3 @@ int32_t st7789h2_send_data(ST7789H2_ctx_t *ctx, uint8_t *pdata, uint16_t length)
 #endif
 
 #endif /* ST7789H2_REG_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

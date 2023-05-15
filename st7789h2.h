@@ -7,13 +7,12 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2016 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017-2022 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
@@ -48,10 +47,9 @@ extern "C" {
 typedef int32_t (*ST7789H2_Init_Func)(void);
 typedef int32_t (*ST7789H2_DeInit_Func)(void);
 typedef int32_t (*ST7789H2_GetTick_Func)(void);
-typedef int32_t (*ST7789H2_Delay_Func)(uint32_t);
-typedef int32_t (*ST7789H2_WriteReg_Func)(uint16_t, uint16_t, uint8_t *, uint16_t);
-typedef int32_t (*ST7789H2_ReadReg_Func)(uint16_t, uint16_t, uint8_t *, uint16_t);
-typedef int32_t (*ST7789H2_SendData_Func)(uint8_t *, uint16_t);
+typedef int32_t (*ST7789H2_WriteReg_Func)(uint16_t, uint16_t, uint8_t *, uint32_t);
+typedef int32_t (*ST7789H2_ReadReg_Func)(uint16_t, uint16_t, uint8_t *, uint32_t);
+typedef int32_t (*ST7789H2_SendData_Func)(uint8_t *, uint32_t);
 
 typedef struct
 {
@@ -80,8 +78,8 @@ typedef struct
   int32_t (*ReadID)(ST7789H2_Object_t *, uint32_t *);
   int32_t (*DisplayOn)(ST7789H2_Object_t *);
   int32_t (*DisplayOff)(ST7789H2_Object_t *);
-  int32_t (*SetBrightness)(ST7789H2_Object_t *, uint32_t);
-  int32_t (*GetBrightness)(ST7789H2_Object_t *, uint32_t *);
+  int32_t (*SetBrightness)(const ST7789H2_Object_t *, uint32_t);
+  int32_t (*GetBrightness)(const ST7789H2_Object_t *, const uint32_t *);
   int32_t (*SetOrientation)(ST7789H2_Object_t *, uint32_t);
   int32_t (*GetOrientation)(ST7789H2_Object_t *, uint32_t *);
 
@@ -94,8 +92,8 @@ typedef struct
   int32_t (*FillRect)(ST7789H2_Object_t *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
   int32_t (*GetPixel)(ST7789H2_Object_t *, uint32_t, uint32_t, uint32_t *);
   int32_t (*SetPixel)(ST7789H2_Object_t *, uint32_t, uint32_t, uint32_t);
-  int32_t (*GetXSize)(ST7789H2_Object_t *, uint32_t *);
-  int32_t (*GetYSize)(ST7789H2_Object_t *, uint32_t *);
+  int32_t (*GetXSize)(const ST7789H2_Object_t *, uint32_t *);
+  int32_t (*GetYSize)(const ST7789H2_Object_t *, uint32_t *);
 
 } ST7789H2_Drv_t;
 /**
@@ -139,8 +137,8 @@ int32_t ST7789H2_DeInit(ST7789H2_Object_t *pObj);
 int32_t ST7789H2_ReadID(ST7789H2_Object_t *pObj, uint32_t *Id);
 int32_t ST7789H2_DisplayOn(ST7789H2_Object_t *pObj);
 int32_t ST7789H2_DisplayOff(ST7789H2_Object_t *pObj);
-int32_t ST7789H2_SetBrightness(ST7789H2_Object_t *pObj, uint32_t Brightness);
-int32_t ST7789H2_GetBrightness(ST7789H2_Object_t *pObj, uint32_t *Brightness);
+int32_t ST7789H2_SetBrightness(const ST7789H2_Object_t *pObj, uint32_t Brightness);
+int32_t ST7789H2_GetBrightness(const ST7789H2_Object_t *pObj, const uint32_t *Brightness);
 int32_t ST7789H2_SetOrientation(ST7789H2_Object_t *pObj, uint32_t Orientation);
 int32_t ST7789H2_GetOrientation(ST7789H2_Object_t *pObj, uint32_t *Orientation);
 int32_t ST7789H2_SetCursor(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos);
@@ -151,8 +149,8 @@ int32_t ST7789H2_DrawVLine(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos
 int32_t ST7789H2_FillRect(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height, uint32_t Color);
 int32_t ST7789H2_SetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Color);
 int32_t ST7789H2_GetPixel(ST7789H2_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t *Color);
-int32_t ST7789H2_GetXSize(ST7789H2_Object_t *pObj, uint32_t *XSize);
-int32_t ST7789H2_GetYSize(ST7789H2_Object_t *pObj, uint32_t *YSize);
+int32_t ST7789H2_GetXSize(const ST7789H2_Object_t *pObj, uint32_t *XSize);
+int32_t ST7789H2_GetYSize(const ST7789H2_Object_t *pObj, uint32_t *YSize);
 /**
   * @}
   */
@@ -174,5 +172,3 @@ int32_t ST7789H2_GetYSize(ST7789H2_Object_t *pObj, uint32_t *YSize);
 #endif
 
 #endif /* ST7789H2_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
